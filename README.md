@@ -10,7 +10,7 @@ Opening stretches the capsule for 240 ms, then unfolds the contextual surface fo
 
 Visual quality and monitor/DPI behavior require manual Windows review. Foreground-monitor tracking remains unchanged. No claim of visual acceptance follows from compilation alone.
 
-Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1 uses one tightly bounded Island window, an original layered SVG character, local commands, search, system information, persistent settings/memory, and tray controls.
+Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1.1 adds an optional OpenAI-powered conversational brain and tightly scoped local tools while preserving the Island, animated character, local commands, search, system information, settings/memory, and tray controls.
 
 ## Development
 
@@ -28,6 +28,18 @@ Create a distributable Windows installer with `npm run tauri build`.
 - `src/types/companion.ts` defines the supported state union and a small event/interface contract for future modules.
 - `src/types/providers.ts` defines future AI tool and Codex activity boundaries.
 - `src-tauri/src/main.rs` provides validated settings, search, memory, startup, system, file, and allowlisted app commands plus tray behavior.
+- `src-tauri/src/credentials.rs` is the only API-key storage boundary and uses Windows Credential Manager under `Kai Desktop / OpenAI API`.
+- `src-tauri/src/ai.rs` owns Responses API requests, bounded in-memory context, personality, tool definitions/execution, and provider error mapping.
+
+## OpenAI brain
+
+Online AI is opt-in. Settings lets the user securely save, replace, remove, and test an OpenAI API key, enable online answers, and choose GPT-5.6 Luna (default), Terra, or Sol. The key never crosses into the webview and is never written to Kai's JSON settings or logs. Every Responses API request sets `store: false`; this is not presented as a zero-retention guarantee.
+
+Deterministic requests always bypass AI: filename searches, approved app launches, known-folder opening, connectivity, and system snapshots remain local. Other requests use OpenAI only when the feature is enabled, a key exists, and Windows reports connectivity. Conversation context is memory-only, capped at 16 messages, and can be cleared from Settings.
+
+The model can request only `search_files`, `get_file_metadata`, `open_file`, `reveal_file`, `open_known_app`, and `get_system_info`. File contents are never read. Model-visible search data omits full paths and uses per-request numeric references; open/reveal resolves those references against the current local result set. There is no shell, arbitrary execution, destructive file operation, or model-supplied path.
+
+V1.1 uses reliable non-streaming requests with a 45-second timeout. In-flight request cancellation is not yet exposed.
 
 ## State system
 
@@ -43,7 +55,7 @@ The frontend capability applies only to the Island window. It exposes explicit R
 
 ## Known limitations
 
-- Direct Everything SDK IPC, secure OpenAI credentials/provider calls, fullscreen detection, foreground-monitor following, installed-app discovery, and Codex activity ingestion are deferred as detailed below.
+- Direct Everything SDK IPC, fullscreen detection, foreground-monitor following, installed-app discovery, and Codex activity ingestion are deferred as detailed below.
 
 ## Phase 2: offline-first platform
 
@@ -63,14 +75,14 @@ The allowlisted launcher supports Calculator, Notepad, File Explorer, and Window
 
 Settings persist locally and cover display name, Kai visibility, fullscreen preference, reduced motion, startup, provider selection, and approved extra roots. Start with Windows uses the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry, requires no administrator rights, avoids duplicates, and removes the same named entry when disabled. The stored setting is reconciled with the registry.
 
-Search identifies paths; it does not read file contents. No path, filename, metadata, content, or index is sent to an AI provider. Future AI providers must use explicit registered capabilities and secure credential storage; they can never turn model output into shell commands. Kai has no permanent microphone recording or background network polling.
+Search identifies paths; it does not read file contents. Direct local searches stay on the PC. For an online tool-assisted search, Kai sends only the bounded result metadata needed to answer and withholds full paths and file contents. Model output can invoke only explicit registered capabilities and can never become a shell command. Kai has no permanent microphone recording or background network polling.
 
 ### Phase 2 limitations
 
 - The installed Everything 1.4 application has IPC available, but its SDK DLL and `es.exe` are not installed. Kai uses Everything's documented HTTP interface when the user enables it; direct SDK IPC is deferred rather than bundling an unreviewed native DLL.
-- Fullscreen detection, foreground-monitor following, installed-app discovery, Codex activity, and local/online AI providers are deferred. The current monitor remains stable to avoid disruptive jumps.
+- Fullscreen detection, foreground-monitor following, installed-app discovery, Codex activity, and a fully local AI provider are deferred. The current monitor remains stable to avoid disruptive jumps.
 
-`src/types/providers.ts` defines the future AI and explicit Codex activity boundaries. AI requests receive only named Kai tools; the boundary contains no shell, PowerShell, CMD, or generic process capability. No OpenAI implementation or credential UI ships in V1 because Windows Credential Manager integration and provider request/tool review were not completed reliably in this pass. Kai does not store a plaintext API key. Codex has no stable public local activity source in this project, so only an explicit publisher interface is defined and no private data is scraped.
+`src/types/providers.ts` defines the AI tool and explicit Codex activity boundaries. AI requests receive only named Kai tools; the boundary contains no shell, PowerShell, CMD, or generic process capability. Codex has no stable public local activity source in this project, so only an explicit publisher interface is defined and no private data is scraped.
 
 ## Offline commands
 

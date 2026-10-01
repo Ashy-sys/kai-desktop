@@ -1,6 +1,6 @@
 [package]
 name = "kai-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "A lightweight Windows desktop companion"
 authors = ["Kai Desktop"]
 edition = "2021"
@@ -18,4 +18,6 @@ walkdir = "2"
 sysinfo = "0.37"
 winreg = "0.55"
 urlencoding = "2"
-windows-sys = { version = "0.61", features = ["Win32_System_Power", "Win32_Networking_WinInet"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_Power", "Win32_Networking_WinInet"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+zeroize = "1"
