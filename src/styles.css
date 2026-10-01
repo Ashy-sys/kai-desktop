@@ -1,0 +1,20 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e9fbff; background: transparent; }
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent; }
+button { font: inherit; }
+.app { width: 350px; min-height: 270px; padding: 12px 18px 0; display: flex; flex-direction: column; align-items: center; user-select: none; }
+.kai-character { position: relative; padding: 0; width: 192px; height: 240px; border: 0; background: transparent; cursor: grab; touch-action: none; }
+.kai-character:active { cursor: grabbing; }
+.kai-character img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 10px 9px rgba(0,0,0,.24)); }
+.state-idle img { animation: breathe 3.8s ease-in-out infinite; }
+.state-working img { animation: work 0.45s ease-in-out infinite alternate; }
+.state-thinking img { animation: think 1.5s ease-in-out infinite; }
+.state-success img { animation: celebrate 0.65s ease-in-out 2; }
+.state-error img { animation: confused 0.32s ease-in-out 3; }
+.state-sleeping img { animation: sleep 3s ease-in-out infinite; filter: saturate(.72) brightness(.82); }
+.thought, .sleep { position: absolute; color: #ffca50; font-weight: 800; text-shadow: 0 2px 5px #123; pointer-events: none; }
+.thought { top: 23px; right: 5px; animation: float 1.2s ease-in-out infinite; }.sleep { top: 18px; right: 8px; font-size: 20px; animation: float 2s ease-in-out infinite; }
+.interaction-panel { width: 314px; margin-top: -6px; padding: 14px; border: 1px solid rgba(109,232,255,.30); border-radius: 18px; background: rgba(13,29,43,.94); box-shadow: 0 14px 32px rgba(0,0,0,.28); backdrop-filter: blur(12px); }
+.panel-top { display:flex; align-items:start; justify-content:space-between; }.panel-top strong { display:block; font-size: 16px; }.panel-top span { display:block; margin-top:2px; color:#a7c3ce; font-size:11px; }.close { border:0; background:transparent; color:#a7c3ce; font-size:22px; line-height:15px; cursor:pointer; }.interaction-panel p { margin: 12px 0; font-size: 13px; color:#d7ecf2; }.state-label { display:flex; justify-content:space-between; padding:8px 10px; border-radius:10px; background:#102d3c; color:#a7c3ce; font-size:11px; }.state-label b { color:#6de8ff; text-transform:capitalize; }.state-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:10px; }.state-grid button, .panel-actions button { border:1px solid rgba(162,213,225,.2); background:#173848; border-radius:9px; color:#dff8ff; padding:7px 5px; cursor:pointer; font-size:11px; text-transform:capitalize; }.state-grid button:hover, .state-grid button.active { background:#1b6475; border-color:#6de8ff; }.panel-actions { display:flex; justify-content:space-between; gap:8px; margin-top:12px; }.panel-actions button { flex:1; }.panel-actions .quit { color:#ffd7d7; background:#4b2c35; }
+@keyframes breathe { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-3px) scale(1.018)} } @keyframes work { to{transform:translateX(3px) rotate(1deg)} } @keyframes think { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-5deg) translateY(-2px)} } @keyframes celebrate { 50%{transform:translateY(-15px) rotate(6deg) scale(1.07)} } @keyframes confused { 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} } @keyframes sleep { 50%{transform:translateY(4px) rotate(1deg)} } @keyframes float { 50%{transform:translateY(-5px); opacity:.65} }
+@media (prefers-reduced-motion: reduce) { .kai-character img, .thought, .sleep { animation: none !important; } }

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kai Desktop",
+  "version": "0.1.0",
+  "identifier": "com.kai.desktop",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1420", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
+  "app": {
+    "windows": [{ "label": "main", "title": "Kai Desktop", "width": 350, "height": 560, "minWidth": 350, "minHeight": 270, "resizable": false, "fullscreen": false, "decorations": false, "transparent": true, "alwaysOnTop": true, "skipTaskbar": true, "shadow": false, "visible": true }],
+    "security": { "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost" }
+  },
+  "bundle": { "active": true, "targets": "nsis", "icon": ["icons/icon.png"] }
+}
