@@ -9,8 +9,8 @@ use walkdir::WalkDir;
 struct WindowPosition { x: i32, y: i32 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Settings { show_companion: bool, show_island: bool, island_always_visible: bool, auto_hide_fullscreen: bool, reduced_motion: bool, launch_at_login: bool, search_provider: String }
-impl Default for Settings { fn default() -> Self { Self { show_companion:true, show_island:true, island_always_visible:true, auto_hide_fullscreen:false, reduced_motion:false, launch_at_login:false, search_provider:"auto".into() } } }
+struct Settings { #[serde(default)] display_name: String, show_companion: bool, show_island: bool, island_always_visible: bool, auto_hide_fullscreen: bool, reduced_motion: bool, launch_at_login: bool, search_provider: String }
+impl Default for Settings { fn default() -> Self { Self { display_name:String::new(), show_companion:true, show_island:true, island_always_visible:true, auto_hide_fullscreen:false, reduced_motion:false, launch_at_login:false, search_provider:"auto".into() } } }
 #[derive(Serialize)] #[serde(rename_all = "camelCase")]
 struct SearchResult { name:String, path:String, extension:Option<String>, size:Option<u64>, modified:Option<String>, is_directory:bool }
 #[derive(Serialize)] struct EverythingStatus { status:String }
@@ -81,7 +81,14 @@ fn center_island(app: &tauri::AppHandle, width: i32) {
         }
     }
 }
-#[tauri::command] fn resize_island(app:tauri::AppHandle, expanded:bool)->Result<(),String>{ let (width,height):(u32,u32)=if expanded{(430,360)}else{(216,64)}; let island=app.get_webview_window("island").ok_or("Island window unavailable")?; island.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(width,height))).map_err(|e|e.to_string())?; center_island(&app,width as i32); Ok(()) }
+#[tauri::command]
+fn resize_island(app:tauri::AppHandle, mode:String)->Result<(),String>{
+    let (width,height) = match mode.as_str() { "micro" => (88.0,48.0), "compact" => (132.0,64.0), "stretch" => (400.0,64.0), "expanded" => (400.0,248.0), "content" => (400.0,430.0), _ => return Err("Unknown Island presentation".into()) };
+    let island=app.get_webview_window("island").ok_or("Island window unavailable")?;
+    island.set_size(tauri::LogicalSize::new(width,height)).map_err(|e|e.to_string())?;
+    center_island(&app,island.outer_size().map_err(|e|e.to_string())?.width as i32);
+    Ok(())
+}
 
 fn main() {
     tauri::Builder::default()
@@ -101,7 +108,7 @@ fn main() {
                     _ => {}
                 }
             }).build(app)?;
-            center_island(&app.handle(), 216);
+            resize_island(app.handle().clone(), "compact".into())?;
             log::info!("Kai Desktop started");
             Ok(())
         })

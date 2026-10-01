@@ -7,7 +7,7 @@
   "app": {
     "windows": [
       { "label": "main", "title": "Kai Desktop", "width": 350, "height": 560, "minWidth": 350, "minHeight": 270, "resizable": false, "fullscreen": false, "decorations": false, "transparent": true, "alwaysOnTop": true, "skipTaskbar": true, "shadow": false, "visible": false },
-      { "label": "island", "title": "Kai Island", "width": 216, "height": 64, "minWidth": 216, "minHeight": 64, "resizable": false, "fullscreen": false, "decorations": false, "transparent": true, "alwaysOnTop": true, "skipTaskbar": true, "shadow": false, "visible": true }
+      { "label": "island", "title": "Kai Island", "width": 132, "height": 64, "resizable": false, "fullscreen": false, "decorations": false, "transparent": true, "alwaysOnTop": true, "skipTaskbar": true, "shadow": false, "visible": true }
     ],
     "security": { "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost" }
   },

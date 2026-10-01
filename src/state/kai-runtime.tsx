@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { CompanionState, IslandState, KaiEvent } from "../types/companion";
 
-export interface KaiSettings { showCompanion: boolean; showIsland: boolean; islandAlwaysVisible: boolean; autoHideFullscreen: boolean; reducedMotion: boolean; launchAtLogin: boolean; searchProvider: "auto" | "everything" | "fallback"; }
+export interface KaiSettings { displayName?: string; showCompanion: boolean; showIsland: boolean; islandAlwaysVisible: boolean; autoHideFullscreen: boolean; reducedMotion: boolean; launchAtLogin: boolean; searchProvider: "auto" | "everything" | "fallback"; }
 export interface SearchResult { name: string; path: string; extension: string | null; size: number | null; modified: string | null; isDirectory: boolean; }
 interface Runtime { state: CompanionState; island: IslandState; connectivity: "online" | "offline" | "unknown"; settings: KaiSettings; dispatch(event: KaiEvent): Promise<void>; saveSettings(settings: KaiSettings): Promise<void>; }
 const Context = createContext<Runtime | null>(null);

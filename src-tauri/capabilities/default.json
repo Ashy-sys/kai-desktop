@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability set for the Kai desktop companion window.",
-  "windows": ["main"],
-  "permissions": ["core:default", "log:default"]
+  "windows": ["main", "island"],
+  "permissions": ["core:default", "core:window:allow-hide", "log:default"]
 }

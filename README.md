@@ -1,5 +1,15 @@
 # Kai Desktop
 
+## Island visual identity and motion
+
+The primary surface now uses a small creature-led capsule with a graphite/sage material. Kai's existing layered SVG and internal CSS animations are preserved. Pointer movement inside the surface adds a bounded face glance; no global mouse listener is used. Expanded home offers a greeting using the optional local display name under More → Personalize, an integrated command field, and filename suggestions. Searches still use the existing local service; the field does not enable an AI provider.
+
+Native presentation dimensions are logical Windows pixels: micro 88×48, compact 132×64, expanded 400×248, content/settings 400×430. A temporary stretch stage is 400×64. Tauri converts logical sizing for DPI and centers using the actual physical outer width. Sleeping selects micro when collapsed. Escape or clicking Kai collapses; More contains personalization and temporary hide.
+
+Opening stretches the capsule for 240 ms, then unfolds the contextual surface for 180 ms. Closing dismisses content for 120 ms, shrinks vertically, then closes the horizontal capsule for 240 ms. Native bounds change at each stage; there is no permanent oversized overlay. During each short reveal, clipping can leave transparent pixels within that stage's native rectangle; that temporary region still receives hit tests. Motion tokens are in `src/animations/motion.ts`, material and staged motion in `src/animations/island.css`. CSS handles animation; JavaScript only sequences finite native resize steps. Reduced Motion skips stage delays and disables motion, while preserving the character and layout. State surface accents run a limited number of times.
+
+Visual quality and monitor/DPI behavior require manual Windows review. Foreground-monitor tracking remains unchanged. No claim of visual acceptance follows from compilation alone.
+
 Kai is a lightweight Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. Phase 1 provides a borderless transparent companion window, a generated original placeholder character, state-driven animation, a small interaction panel, a system tray menu, and persisted placement.
 
 ## Development
