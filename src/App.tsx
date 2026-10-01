@@ -10,7 +10,7 @@ import { useKai } from "./state/kai-runtime";
 export default function App() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [isIsland, setIsIsland] = useState(false); const [settingsOpen,setSettingsOpen]=useState(false); const {settings}=useKai();
-  useEffect(() => { setIsIsland(getCurrentWindow().label === "island"); void restoreWindowPosition(); }, []);
+  useEffect(() => { const island = getCurrentWindow().label === "island"; setIsIsland(island); if (!island) void restoreWindowPosition(); }, []);
   if (isIsland) return settings.showIsland ? <KaiIsland /> : null;
   if (!settings.showCompanion) return null;
   return <main className={panelOpen ? "app panel-open" : "app"} onContextMenu={(event) => { event.preventDefault(); setPanelOpen(true); }}>

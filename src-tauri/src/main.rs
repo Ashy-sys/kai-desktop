@@ -25,7 +25,7 @@ fn settings_file(app:&tauri::AppHandle)->Result<PathBuf,String>{data_file(app,"s
 #[tauri::command] fn save_settings(app:tauri::AppHandle,settings:Settings)->Result<(),String>{ if !["auto","everything","fallback"].contains(&settings.search_provider.as_str()){return Err("invalid search provider".into())} fs::write(settings_file(&app)?,serde_json::to_string(&settings).map_err(|e|e.to_string())?).map_err(|e|e.to_string()) }
 #[tauri::command] fn publish_kai_event(app:tauri::AppHandle,event:serde_json::Value)->Result<(),String>{app.emit("kai-event",event).map_err(|e|e.to_string())}
 
-fn validate_query(query:&str)->Result<String,String>{let q=query.trim();if q.is_empty()||q.len()>120||q.chars().any(|c|c.is_control()) {Err("Search query must be 1–120 printable characters".into())}else{Ok(q.to_lowercase())}}
+fn validate_query(query:&str)->Result<String,String>{if query.chars().any(|c|c.is_control()) {return Err("Search query must be 1–120 printable characters".into())} let q=query.trim();if q.is_empty()||q.len()>120 {Err("Search query must be 1–120 printable characters".into())}else{Ok(q.to_lowercase())}}
 fn search_roots()->Vec<PathBuf>{let mut roots=Vec::new();if let Ok(home)=std::env::var("USERPROFILE"){for name in ["Desktop","Documents","Downloads"]{let p=PathBuf::from(&home).join(name);if p.is_dir(){roots.push(p)}}}roots}
 #[tauri::command] fn search_files(query:String)->Result<Vec<SearchResult>,String>{let q=validate_query(&query)?;let mut out=Vec::new();for root in search_roots(){for entry in WalkDir::new(root).follow_links(false).max_depth(8).into_iter().filter_map(Result::ok){if out.len()>=80{break}let name=entry.file_name().to_string_lossy();if !name.to_lowercase().contains(&q){continue}let metadata=entry.metadata().ok();out.push(SearchResult{name:name.into_owned(),path:entry.path().display().to_string(),extension:entry.path().extension().map(|v|v.to_string_lossy().into_owned()),size:metadata.as_ref().filter(|m|m.is_file()).map(|m|m.len()),modified:None,is_directory:entry.file_type().is_dir()});}}Ok(out)}
 #[tauri::command] fn everything_status()->EverythingStatus{let found=["ProgramFiles","ProgramFiles(x86)"].iter().filter_map(|key|std::env::var(key).ok()).map(|base|PathBuf::from(base).join("Everything").join("Everything.exe")).any(|p|p.exists());EverythingStatus{status:if found{"detected — local IPC/CLI connection not configured".into()}else{"not detected — using safe local fallback".into()}}}
@@ -73,6 +73,15 @@ fn load_window_position(app: tauri::AppHandle) -> Result<Option<WindowPosition>,
 fn quit_app(app: tauri::AppHandle) { app.exit(0); }
 
 fn show_window(window: &WebviewWindow) { let _ = window.show(); let _ = window.set_focus(); }
+fn center_island(app: &tauri::AppHandle, width: i32) {
+    if let Some(island) = app.get_webview_window("island") {
+        if let Some(monitor) = island.current_monitor().ok().flatten().or_else(|| app.primary_monitor().ok().flatten()) {
+            let size = monitor.size(); let pos = monitor.position();
+            let _ = island.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(pos.x + (size.width as i32 - width) / 2, pos.y + 8)));
+        }
+    }
+}
+#[tauri::command] fn resize_island(app:tauri::AppHandle, expanded:bool)->Result<(),String>{ let (width,height):(u32,u32)=if expanded{(430,360)}else{(216,64)}; let island=app.get_webview_window("island").ok_or("Island window unavailable")?; island.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(width,height))).map_err(|e|e.to_string())?; center_island(&app,width as i32); Ok(()) }
 
 fn main() {
     tauri::Builder::default()
@@ -86,26 +95,20 @@ fn main() {
             let handle = app.handle().clone();
             TrayIconBuilder::with_id("kai-tray").menu(&menu).tooltip("Kai Desktop").on_menu_event(move |_tray, event| {
                 match event.id.as_ref() {
-                    "show" | "settings" => if let Some(window) = handle.get_webview_window("main") { show_window(&window); },
-                    "hide" => if let Some(window) = handle.get_webview_window("main") { let _ = window.hide(); },
+                    "show" | "settings" => if let Some(window) = handle.get_webview_window("island") { show_window(&window); },
+                    "hide" => if let Some(window) = handle.get_webview_window("island") { let _ = window.hide(); },
                     "quit" => handle.exit(0),
                     _ => {}
                 }
             }).build(app)?;
-            if let Some(island) = app.get_webview_window("island") {
-                if let Some(monitor) = island.current_monitor().ok().flatten().or_else(|| app.primary_monitor().ok().flatten()) {
-                    let size = monitor.size(); let pos = monitor.position();
-                    let x = pos.x + (size.width as i32 - 430) / 2;
-                    let _ = island.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(x, pos.y + 8)));
-                }
-            }
+            center_island(&app.handle(), 216);
             log::info!("Kai Desktop started");
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = window.hide(); }
         })
-        .invoke_handler(tauri::generate_handler![save_window_position, load_window_position, quit_app, get_settings, save_settings, publish_kai_event, search_files, everything_status, open_file, reveal_file, launch_app, system_info])
+        .invoke_handler(tauri::generate_handler![save_window_position, load_window_position, quit_app, get_settings, save_settings, publish_kai_event, search_files, everything_status, open_file, reveal_file, launch_app, system_info, resize_island])
         .run(tauri::generate_context!())
         .expect("error while running Kai Desktop");
 }
