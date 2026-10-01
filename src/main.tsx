@@ -7,4 +7,5 @@ import "./styles.css";
 
 void attachConsole();
 void info("Kai frontend started");
+document.addEventListener("visibilitychange", () => { document.documentElement.dataset.hidden = String(document.hidden); });
 createRoot(document.getElementById("root")!).render(<StrictMode><CompanionProvider><App /></CompanionProvider></StrictMode>);

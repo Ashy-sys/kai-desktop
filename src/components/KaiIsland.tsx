@@ -47,6 +47,7 @@ export function KaiIsland() {
   }
   useEffect(()=>{ if(!lock.current && !expanded) void size(state === "sleeping" ? "micro" : "compact").catch(console.error); },[state]);
   useEffect(()=>{ document.documentElement.dataset.reduceMotion=String(settings.reducedMotion); },[settings.reducedMotion]);
+  useEffect(()=>{ if(!settings.showIsland) void getCurrentWindow().hide(); },[settings.showIsland]);
   async function search() {
     if(!query.trim() || busy) return;
     setBusy(true); setError("");
