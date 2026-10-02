@@ -28,10 +28,16 @@ test("service authenticates devices, rejects malformed input, and never exposes 
  const manager={health:()=>[{provider:"mock",model:"mock-1"}],respond:async()=>({kind:"answer",text:"Hi.",provider:"mock",model:"mock-1"})};
  const server=createServer({env:{KAI_RATE_LIMIT_PER_MINUTE:"10"},store,manager});server.listen(0,"127.0.0.1");await once(server,"listening");t.after(()=>server.close());const base=`http://127.0.0.1:${server.address().port}`;
  assert.equal((await fetch(`${base}/healthz`)).status,200);
+ assert.equal((await fetch(`${base}/healthz?foo=bar`)).status,200);
  assert.equal((await fetch(`${base}/v1/respond`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"})).status,401);
+ assert.equal((await fetch(`${base}/v1/respond?auth=bypass`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"})).status,401);
+ assert.equal((await fetch(`${base}/v1/vision?foo=bar`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({prompt:"x",image:"x"})})).status,401);
+ assert.equal((await fetch(`${base}/v1/transcribe?foo=bar`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({audio:"x",mimeType:"audio/webm"})})).status,401);
+ assert.equal((await fetch(`${base}/v1/devices/register?foo=bar`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({deviceId:"123e4567-e89b-42d3-a456-426614174000"})})).status,403);
  assert.equal((await fetch(`${base}/v1/respond`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"hello"}]})})).status,200);
  assert.equal((await fetch(`${base}/v1/respond`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"x"}],toolResult:{name:"run_shell",output:{}}})})).status,400);
  assert.equal((await fetch(`${base}/v1/chat/completions`,{method:"POST"})).status,404);
+ assert.equal((await fetch(`${base}/unknown?foo=/healthz`)).status,404);
 });
 
 test("file registry persists hashes, authenticates, updates last seen, and revokes",async()=>{

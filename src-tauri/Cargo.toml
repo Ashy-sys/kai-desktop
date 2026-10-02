@@ -1,6 +1,6 @@
 [package]
 name = "kai-desktop"
-version = "0.1.3"
+version = "0.1.4"
 description = "A lightweight Windows desktop companion"
 authors = ["Kai Desktop"]
 edition = "2021"
