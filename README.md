@@ -10,7 +10,7 @@ Opening stretches the capsule for 240 ms, then unfolds the contextual surface fo
 
 Visual quality and monitor/DPI behavior require manual Windows review. Foreground-monitor tracking remains unchanged. No claim of visual acceptance follows from compilation alone.
 
-Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1.1 adds an optional OpenAI-powered conversational brain and tightly scoped local tools while preserving the Island, animated character, local commands, search, system information, settings/memory, and tray controls.
+Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1.2 adds a deployment-ready Kai Brain client/service boundary and reliable single-instance startup while preserving the Island, animated character, local commands, search, system information, settings/memory, and tray controls.
 
 ## Development
 
@@ -40,6 +40,14 @@ Deterministic requests always bypass AI: filename searches, approved app launche
 The model can request only `search_files`, `get_file_metadata`, `open_file`, `reveal_file`, `open_known_app`, and `get_system_info`. File contents are never read. Model-visible search data omits full paths and uses per-request numeric references; open/reveal resolves those references against the current local result set. There is no shell, arbitrary execution, destructive file operation, or model-supplied path.
 
 V1.1 uses reliable non-streaming requests with a 45-second timeout. In-flight request cancellation is not yet exposed.
+
+## V1.2 automatic Brain
+
+Normal conversational routing now prefers the separately deployable `kai-brain` service. Deterministic requests still bypass all network AI. A Brain deployment can route Gemini → Groq → OpenAI, depending on server-side credentials, and can return only one of the six registered V1.1 tool requests. Rust remains the local authority and validates/executes every tool. The V1.1 OpenAI Credential Manager flow remains available under Advanced provider settings as an optional fallback.
+
+The service URL is deployment configuration, never a provider secret. Development may set runtime `KAI_BRAIN_URL=http://127.0.0.1:8787`; production builds must set `KAI_BRAIN_URL=https://…` when running `npm run tauri build`. Builds without it remain in honest local mode. See `kai-brain/README.md` for the first-device enrollment trust model, server configuration, HTTPS expectations, provider status, rate limiting, and deployment steps.
+
+The supported Tauri single-instance plugin is initialized first. A second launch exits and asks the existing process to restore compact bounds, recompute top-center monitor coordinates, restore always-on-top, show, and focus the Island. The Windows Run entry now includes `--startup`; login launches briefly hide the initially created Island for a bounded 900 ms desktop/WebView readiness interval and then run the same recovery path. No console or helper process is used.
 
 ## State system
 
@@ -108,3 +116,15 @@ Recent commands and search terms are saved in `memory.json` under Kai's per-user
 - Test a fullscreen video/game manually; automatic fullscreen hiding is not implemented.
 - Quit from the tray and relaunch Kai.
 - Island monitor selection uses the Island's current monitor or primary monitor; automatic foreground-window monitor tracking is future work.
+
+### V1.2 startup acceptance
+
+1. Install V1.2 and enable Start with Windows.
+2. Reboot Windows and sign in.
+3. Confirm Kai appears automatically in the approved idle state.
+4. Confirm Task Manager contains exactly one `kai-desktop.exe`.
+5. Launch Kai again from Start; confirm the existing Island wakes and remains the only process.
+6. Hide Kai, launch it again, and confirm window recovery restores valid compact top-center bounds.
+7. Exit Kai from the tray, start it manually, and confirm normal Island behavior.
+
+These reboot/login and monitor/WebView timing checks require a real interactive Windows session and are not claimed by automated compilation alone.

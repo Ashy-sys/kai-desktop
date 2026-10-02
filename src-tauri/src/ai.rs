@@ -22,8 +22,13 @@ pub struct AiState {
 
 #[derive(Clone, Serialize)]
 pub struct ConversationTurn {
-    role: &'static str,
-    content: String,
+    pub(crate) role: &'static str,
+    pub(crate) content: String,
+}
+impl ConversationTurn {
+    pub(crate) fn new(role: &'static str, content: String) -> Self {
+        Self { role, content }
+    }
 }
 
 #[derive(Default)]
@@ -64,7 +69,7 @@ fn indexed<'a>(args: &Value, results: &'a [SearchResult]) -> Result<&'a SearchRe
         .ok_or_else(|| "That search result is unavailable. Search again first.".into())
 }
 
-fn execute_tool(
+pub(crate) fn execute_tool(
     app: &AppHandle,
     name: &str,
     arguments: &str,

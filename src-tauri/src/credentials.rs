@@ -7,6 +7,7 @@ use windows_sys::Win32::Security::Credentials::{
 use zeroize::Zeroize;
 
 pub const OPENAI_CREDENTIAL_TARGET: &str = "Kai Desktop / OpenAI API";
+pub const BRAIN_CREDENTIAL_TARGET: &str = "Kai Desktop / Brain Device Token";
 
 fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(Some(0)).collect()
@@ -23,10 +24,9 @@ pub fn validate_api_key(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn write_openai_key(mut value: String) -> Result<(), String> {
-    validate_api_key(&value)?;
-    let mut target = wide(OPENAI_CREDENTIAL_TARGET);
-    let mut username = wide("OpenAI API key");
+fn write_secret(target_name: &str, username_label: &str, mut value: String) -> Result<(), String> {
+    let mut target = wide(target_name);
+    let mut username = wide(username_label);
     let bytes = value.as_bytes();
     let mut credential: CREDENTIALW = unsafe { std::mem::zeroed() };
     credential.Type = CRED_TYPE_GENERIC;
@@ -44,8 +44,19 @@ pub fn write_openai_key(mut value: String) -> Result<(), String> {
     }
 }
 
-pub fn read_openai_key() -> Result<Option<String>, String> {
-    let target = wide(OPENAI_CREDENTIAL_TARGET);
+pub fn write_openai_key(value: String) -> Result<(), String> {
+    validate_api_key(&value)?;
+    write_secret(OPENAI_CREDENTIAL_TARGET, "OpenAI API key", value)
+}
+pub fn write_brain_token(value: String) -> Result<(), String> {
+    if value.len() < 32 || value.len() > 256 || value.chars().any(char::is_control) {
+        return Err("Kai Brain returned an invalid device token.".into());
+    }
+    write_secret(BRAIN_CREDENTIAL_TARGET, "Kai Brain device token", value)
+}
+
+fn read_secret(target_name: &str) -> Result<Option<String>, String> {
+    let target = wide(target_name);
     let mut raw: *mut CREDENTIALW = ptr::null_mut();
     let result = unsafe { CredReadW(target.as_ptr(), CRED_TYPE_GENERIC, 0, &mut raw) };
     if result == 0 {
@@ -70,15 +81,27 @@ pub fn read_openai_key() -> Result<Option<String>, String> {
     unsafe { CredFree(raw as *const _) };
     value.map(Some)
 }
+pub fn read_openai_key() -> Result<Option<String>, String> {
+    read_secret(OPENAI_CREDENTIAL_TARGET)
+}
+pub fn read_brain_token() -> Result<Option<String>, String> {
+    read_secret(BRAIN_CREDENTIAL_TARGET)
+}
 
-pub fn delete_openai_key() -> Result<(), String> {
-    let target = wide(OPENAI_CREDENTIAL_TARGET);
+fn delete_secret(target_name: &str) -> Result<(), String> {
+    let target = wide(target_name);
     let result = unsafe { CredDeleteW(target.as_ptr(), CRED_TYPE_GENERIC, 0) };
     if result != 0 || unsafe { GetLastError() } == ERROR_NOT_FOUND {
         Ok(())
     } else {
         Err("Windows Credential Manager couldn't remove the API key.".into())
     }
+}
+pub fn delete_openai_key() -> Result<(), String> {
+    delete_secret(OPENAI_CREDENTIAL_TARGET)
+}
+pub fn delete_brain_token() -> Result<(), String> {
+    delete_secret(BRAIN_CREDENTIAL_TARGET)
 }
 
 #[cfg(test)]

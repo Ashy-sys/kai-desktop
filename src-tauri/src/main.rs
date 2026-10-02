@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod ai;
+mod brain;
 mod credentials;
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,7 @@ use walkdir::WalkDir;
 #[serde(rename_all = "camelCase")]
 struct Settings { #[serde(default)] display_name: String, show_companion: bool, show_island: bool, island_always_visible: bool, auto_hide_fullscreen: bool, reduced_motion: bool, launch_at_login: bool, search_provider: String, #[serde(default)] search_roots: Vec<String>, #[serde(default)] online_ai_enabled: bool, #[serde(default="default_openai_model")] openai_model:String }
 fn default_openai_model()->String{ai::DEFAULT_MODEL.into()}
-impl Default for Settings { fn default() -> Self { Self { display_name:String::new(), show_companion:true, show_island:true, island_always_visible:true, auto_hide_fullscreen:false, reduced_motion:false, launch_at_login:false, search_provider:"auto".into(), search_roots:Vec::new(), online_ai_enabled:false, openai_model:default_openai_model() } } }
+impl Default for Settings { fn default() -> Self { Self { display_name:String::new(), show_companion:true, show_island:true, island_always_visible:true, auto_hide_fullscreen:false, reduced_motion:false, launch_at_login:false, search_provider:"auto".into(), search_roots:Vec::new(), online_ai_enabled:true, openai_model:default_openai_model() } } }
 #[derive(Debug, Clone, Serialize, Deserialize)] #[serde(rename_all = "camelCase")]
 struct SearchResult { name:String, path:String, extension:Option<String>, size:Option<u64>, modified:Option<String>, is_directory:bool }
 #[derive(Serialize)] #[serde(rename_all="camelCase")] struct EverythingStatus { status:String, installed:bool, http_available:bool, active_provider:String }
@@ -27,7 +28,8 @@ fn data_file(app:&tauri::AppHandle, name:&str)->Result<PathBuf,String>{ let dir=
 fn settings_file(app:&tauri::AppHandle)->Result<PathBuf,String>{data_file(app,"settings.json")}
 fn memory_file(app:&tauri::AppHandle)->Result<PathBuf,String>{data_file(app,"memory.json")}
 #[tauri::command] fn get_settings(app:tauri::AppHandle)->Result<Settings,String>{let file=settings_file(&app)?;let mut settings=match fs::read_to_string(file){Ok(v)=>serde_json::from_str(&v).map_err(|e|e.to_string())?,Err(e)if e.kind()==std::io::ErrorKind::NotFound=>Settings::default(),Err(e)=>return Err(e.to_string())};settings.launch_at_login=startup_enabled();Ok(settings)}
-fn set_startup(enabled:bool)->Result<(),String>{let hkcu=RegKey::predef(HKEY_CURRENT_USER);let (key,_)=hkcu.create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run").map_err(|e|e.to_string())?;if enabled{let exe=std::env::current_exe().map_err(|e|e.to_string())?;key.set_value("Kai Desktop",&format!("\"{}\"",exe.display())).map_err(|e|e.to_string())?}else{match key.delete_value("Kai Desktop"){Ok(_)=>{},Err(e)if e.kind()==std::io::ErrorKind::NotFound=>{},Err(e)=>return Err(e.to_string())}}Ok(())}
+fn startup_command(exe:&Path)->String{format!("\"{}\" --startup",exe.display())}
+fn set_startup(enabled:bool)->Result<(),String>{let hkcu=RegKey::predef(HKEY_CURRENT_USER);let (key,_)=hkcu.create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run").map_err(|e|e.to_string())?;if enabled{let exe=std::env::current_exe().map_err(|e|e.to_string())?;key.set_value("Kai Desktop",&startup_command(&exe)).map_err(|e|e.to_string())?}else{match key.delete_value("Kai Desktop"){Ok(_)=>{},Err(e)if e.kind()==std::io::ErrorKind::NotFound=>{},Err(e)=>return Err(e.to_string())}}Ok(())}
 fn startup_enabled()->bool{RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run").ok().and_then(|k:RegKey|k.get_value::<String,_>("Kai Desktop").ok()).is_some()}
 #[tauri::command] fn save_settings(app:tauri::AppHandle,mut settings:Settings)->Result<(),String>{ if !["auto","everything","fallback"].contains(&settings.search_provider.as_str()){return Err("invalid search provider".into())} if !ai::ALLOWED_MODELS.contains(&settings.openai_model.as_str()){return Err("Choose a supported OpenAI model.".into())} for root in &settings.search_roots{let p=Path::new(root);if !p.is_absolute()||!p.is_dir(){return Err("Search roots must be existing folders".into())}}set_startup(settings.launch_at_login)?;settings.launch_at_login=startup_enabled();fs::write(settings_file(&app)?,serde_json::to_string_pretty(&settings).map_err(|e|e.to_string())?).map_err(|e|e.to_string()) }
 #[tauri::command] fn openai_credential_status()->Result<CredentialStatus,String>{Ok(CredentialStatus{configured:credentials::read_openai_key()?.is_some(),storage:"Windows Credential Manager"})}
@@ -35,6 +37,7 @@ fn startup_enabled()->bool{RegKey::predef(HKEY_CURRENT_USER).open_subkey("Softwa
 #[tauri::command] fn delete_openai_credential()->Result<(),String>{credentials::delete_openai_key()}
 #[tauri::command] async fn test_openai_connection(app:tauri::AppHandle)->Result<(),String>{tauri::async_runtime::spawn_blocking(move||get_settings(app.clone()).and_then(|settings|ai::test_connection(&settings))).await.map_err(|e|e.to_string())?}
 #[tauri::command] fn clear_ai_conversation(state:tauri::State<ai::AiState>)->Result<(),String>{ai::clear(&state)}
+#[tauri::command] async fn brain_status()->Result<serde_json::Value,String>{tauri::async_runtime::spawn_blocking(brain::status).await.map_err(|e|e.to_string())}
 #[tauri::command] fn startup_status()->bool{startup_enabled()}
 fn read_memory(app:&tauri::AppHandle)->Memory{memory_file(app).ok().and_then(|p|fs::read_to_string(p).ok()).and_then(|v|serde_json::from_str(&v).ok()).unwrap_or_default()}
 fn remember(app:&tauri::AppHandle,value:&str,search:bool){let mut memory=read_memory(app);let list=if search{&mut memory.recent_searches}else{&mut memory.recent_commands};list.retain(|v|v!=value);list.insert(0,value.into());list.truncate(20);if let Ok(path)=memory_file(app){let _=fs::write(path,serde_json::to_string_pretty(&memory).unwrap_or_default());}}
@@ -60,7 +63,32 @@ fn connectivity()->&'static str{let mut flags=0u32;let online=unsafe{windows_sys
 
 #[derive(Debug,PartialEq)] enum LocalIntent{Search(String),Launch(&'static str),OpenKnown(&'static str),SystemInfo,Connectivity,Unsupported}
 fn parse_intent(input:&str)->LocalIntent{let lower=input.trim().to_lowercase();let normalized=lower.trim_end_matches(['?','.']);if let Some(rest)=normalized.strip_prefix("find ").or_else(||normalized.strip_prefix("search for ")).or_else(||normalized.strip_prefix("search ")){let query=match rest{"mp4 files"=>"*.mp4","jpg files"=>"*.jpg","videos"=>"*.mp4",other=>other};return LocalIntent::Search(query.into())}match normalized{"open calculator"=>LocalIntent::Launch("calculator"),"open notepad"=>LocalIntent::Launch("notepad"),"open file explorer"|"open explorer"=>LocalIntent::Launch("explorer"),"open settings"|"open windows settings"=>LocalIntent::Launch("settings"),"open downloads"=>LocalIntent::OpenKnown("Downloads"),"open documents"=>LocalIntent::OpenKnown("Documents"),"how much disk space do i have"|"how much storage is left"|"show storage"|"system info"|"battery"|"what's my battery"|"memory usage"|"how much ram am i using"=>LocalIntent::SystemInfo,"am i offline"|"connectivity"|"network status"=>LocalIntent::Connectivity,_=>LocalIntent::Unsupported}}
-#[tauri::command] async fn execute_local_command(app:tauri::AppHandle,request:String)->Result<IntentResponse,String>{if request.trim().is_empty()||request.len()>1200||request.chars().any(|c|c.is_control()&&!matches!(c,'\n'|'\t')){return Err("Request must be short printable text".into())}remember(&app,&request,false);match parse_intent(&request){LocalIntent::Search(query)=>{let search_app=app.clone();let search_query=query.clone();let(results,provider)=tauri::async_runtime::spawn_blocking(move||perform_search(&search_app,&search_query)).await.map_err(|e|e.to_string())??;Ok(IntentResponse::Search{query,results,provider})},LocalIntent::Launch(target)=>{launch_app(target.into())?;Ok(IntentResponse::Message{title:"Opened".into(),body:format!("{} is ready.",target),data:serde_json::Value::Null})},LocalIntent::OpenKnown(folder)=>{let home=std::env::var("USERPROFILE").map_err(|_|"User folder unavailable")?;let path=PathBuf::from(home).join(folder);if !path.is_dir(){return Err("That folder is unavailable".into())}Command::new("explorer.exe").arg(path).spawn().map_err(|e|e.to_string())?;Ok(IntentResponse::Message{title:"Opened".into(),body:format!("{} is ready.",folder),data:serde_json::Value::Null})},LocalIntent::SystemInfo=>Ok(IntentResponse::Message{title:"Your PC".into(),body:"Here’s the latest snapshot.".into(),data:system_info()}),LocalIntent::Connectivity=>Ok(IntentResponse::Message{title:"Connection".into(),body:if connectivity()=="online"{"You’re online.".into()}else{"You’re offline. Local Kai still works.".into()},data:serde_json::json!({"connectivity":connectivity()})}),LocalIntent::Unsupported=>{let settings=get_settings(app.clone())?;if !settings.online_ai_enabled{return Ok(IntentResponse::Unsupported{message:"Online AI is off. I can still search this PC, open allowlisted apps, and check system info.".into()})}if credentials::read_openai_key()?.is_none(){return Ok(IntentResponse::Unsupported{message:"Add your OpenAI API key in Kai settings to use online answers. Local tools remain available.".into()})}let ai_app=app.clone();let outcome=tauri::async_runtime::spawn_blocking(move||{let state=ai_app.state::<ai::AiState>();ai::run(ai_app.clone(),&state,&settings,request)}).await.map_err(|e|e.to_string())??;Ok(IntentResponse::Ai{text:outcome.text,results:outcome.results,provider:outcome.provider})}}}
+#[tauri::command]
+async fn execute_local_command(app:tauri::AppHandle,request:String)->Result<IntentResponse,String>{
+    if request.trim().is_empty()||request.len()>1200||request.chars().any(|c|c.is_control()&&!matches!(c,'\n'|'\t')){return Err("Request must be short printable text".into())}
+    remember(&app,&request,false);
+    match parse_intent(&request){
+        LocalIntent::Search(query)=>{let search_app=app.clone();let search_query=query.clone();let(results,provider)=tauri::async_runtime::spawn_blocking(move||perform_search(&search_app,&search_query)).await.map_err(|e|e.to_string())??;Ok(IntentResponse::Search{query,results,provider})},
+        LocalIntent::Launch(target)=>{launch_app(target.into())?;Ok(IntentResponse::Message{title:"Opened".into(),body:format!("{} is ready.",target),data:serde_json::Value::Null})},
+        LocalIntent::OpenKnown(folder)=>{let home=std::env::var("USERPROFILE").map_err(|_|"User folder unavailable")?;let path=PathBuf::from(home).join(folder);if !path.is_dir(){return Err("That folder is unavailable".into())}Command::new("explorer.exe").arg(path).spawn().map_err(|e|e.to_string())?;Ok(IntentResponse::Message{title:"Opened".into(),body:format!("{} is ready.",folder),data:serde_json::Value::Null})},
+        LocalIntent::SystemInfo=>Ok(IntentResponse::Message{title:"Your PC".into(),body:"Here’s the latest snapshot.".into(),data:system_info()}),
+        LocalIntent::Connectivity=>Ok(IntentResponse::Message{title:"Connection".into(),body:if connectivity()=="online"{"You’re online.".into()}else{"You’re offline. Local Kai still works.".into()},data:serde_json::json!({"connectivity":connectivity()})}),
+        LocalIntent::Unsupported=>{
+            let settings=get_settings(app.clone())?;
+            if !settings.online_ai_enabled{return Ok(IntentResponse::Unsupported{message:"Online AI is off. I can still search this PC, open allowlisted apps, and check system info.".into()})}
+            if connectivity()!="online"{return Ok(IntentResponse::Unsupported{message:"I'm offline right now, but my local tools still work.".into()})}
+            let ai_app=app.clone();
+            let outcome=tauri::async_runtime::spawn_blocking(move||{
+                let state=ai_app.state::<ai::AiState>();
+                match brain::run(ai_app.clone(),&state,request.clone()){
+                    Ok(value)=>Ok(value),
+                    Err(brain_error)=>if credentials::read_openai_key()?.is_some(){ai::run(ai_app.clone(),&state,&settings,request)}else{Err(brain_error)}
+                }
+            }).await.map_err(|e|e.to_string())??;
+            Ok(IntentResponse::Ai{text:outcome.text,results:outcome.results,provider:outcome.provider})
+        }
+    }
+}
 
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) { app.exit(0); }
@@ -74,6 +102,7 @@ fn center_island(app: &tauri::AppHandle, width: i32) {
         }
     }
 }
+fn recover_island(app:&tauri::AppHandle){if let Some(island)=app.get_webview_window("island"){let _=island.set_size(tauri::LogicalSize::new(88.0,68.0));let _=island.set_always_on_top(true);if let Ok(size)=island.outer_size(){center_island(app,size.width as i32)}let _=island.show();let _=island.set_focus();}}
 #[tauri::command]
 fn resize_island(app:tauri::AppHandle, mode:String)->Result<(),String>{
     let (width,height) = match mode.as_str() { "micro" => (68.0,52.0), "compact" => (88.0,68.0), "stretch" => (400.0,68.0), "expanded" => (400.0,248.0), "content" => (400.0,430.0), _ => return Err("Unknown Island presentation".into()) };
@@ -85,6 +114,7 @@ fn resize_island(app:tauri::AppHandle, mode:String)->Result<(),String>{
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app,_args,_cwd|recover_island(app)))
         .manage(ai::AiState::default())
         .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
         .setup(|app| {
@@ -103,22 +133,24 @@ fn main() {
                 }
             }).build(app)?;
             resize_island(app.handle().clone(), "compact".into())?;
+            if std::env::args().any(|arg|arg=="--startup") { let handle=app.handle().clone();if let Some(window)=handle.get_webview_window("island"){let _=window.hide();}tauri::async_runtime::spawn_blocking(move||{std::thread::sleep(Duration::from_millis(900));let main=handle.clone();let _=handle.run_on_main_thread(move||recover_island(&main));}); }
             log::info!("Kai Desktop started");
             Ok(())
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = window.hide(); }
         })
-        .invoke_handler(tauri::generate_handler![quit_app, get_settings, save_settings, startup_status, get_memory, clear_memory, publish_kai_event, search_files, everything_status, open_file, reveal_file, launch_app, system_info, execute_local_command, resize_island, openai_credential_status, save_openai_credential, delete_openai_credential, test_openai_connection, clear_ai_conversation])
+        .invoke_handler(tauri::generate_handler![quit_app, get_settings, save_settings, startup_status, get_memory, clear_memory, publish_kai_event, search_files, everything_status, open_file, reveal_file, launch_app, system_info, execute_local_command, resize_island, openai_credential_status, save_openai_credential, delete_openai_credential, test_openai_connection, clear_ai_conversation, brain_status])
         .run(tauri::generate_context!())
         .expect("error while running Kai Desktop");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{app_target, parse_intent, validate_query, LocalIntent};
+    use super::{app_target, parse_intent, startup_command, validate_query, LocalIntent};
     #[test] fn accepts_normal_search() { assert_eq!(validate_query(" invoice.pdf ").unwrap(), "invoice.pdf"); }
     #[test] fn rejects_malformed_search() { assert!(validate_query("").is_err()); assert!(validate_query("a\n").is_err()); }
     #[test] fn parses_offline_intents() { assert_eq!(parse_intent("Find invoice.pdf"),LocalIntent::Search("invoice.pdf".into()));assert_eq!(parse_intent("find mp4 files"),LocalIntent::Search("*.mp4".into()));assert_eq!(parse_intent("open Calculator"),LocalIntent::Launch("calculator"));assert_eq!(parse_intent("show storage"),LocalIntent::SystemInfo); }
     #[test] fn rejects_unknown_apps() { assert_eq!(app_target("calculator"),Some("calc.exe"));assert_eq!(app_target("powershell"),None); }
+    #[test] fn startup_registration_marks_login_launch(){let command=startup_command(std::path::Path::new(r"C:\Program Files\Kai\kai-desktop.exe"));assert_eq!(command,r#""C:\Program Files\Kai\kai-desktop.exe" --startup"#);}
 }

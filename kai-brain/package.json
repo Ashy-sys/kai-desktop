@@ -1,0 +1,12 @@
+{
+  "name": "kai-brain",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/server.js && node --check src/providers.js && node --check src/security.js",
+    "test": "node --test",
+    "start": "node src/server.js"
+  },
+  "engines": { "node": ">=22" }
+}
