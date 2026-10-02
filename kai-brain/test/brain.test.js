@@ -68,3 +68,12 @@ test("postgres registry surfaces database unavailability",async()=>{
  const registry=new PostgresDeviceRegistry("postgresql://kai@example.test/kai",{query:async()=>{throw new Error("database_unavailable");}});
  await assert.rejects(()=>registry.initialize(),error=>error.kind==="device_registry_unavailable"&&error.status===503);
 });
+
+test("vision routing skips non-vision providers and falls back without paid calls",async()=>{
+ const used=[];const manager=new ProviderManager([
+  {name:"text-only",model:"t",capabilities:new Set(["text"]),respond:async()=>({})},
+  {name:"vision-bad",model:"v1",capabilities:new Set(["vision"]),vision:async()=>{used.push("bad");throw new ProviderError("temporary","offline")}},
+  {name:"vision-good",model:"v2",capabilities:new Set(["vision"]),vision:async()=>{used.push("good");return{kind:"answer",text:"safe description",provider:"vision-good",model:"v2"}}}
+ ]);const result=await manager.vision({prompt:"describe",image:"mock"});assert.equal(result.provider,"vision-good");assert.deepEqual(used,["bad","good"]);
+});
+test("vision routing rejects configurations with no capable provider",async()=>{const manager=new ProviderManager([{name:"text",model:"t",capabilities:new Set(["text"]),respond:async()=>({})}]);await assert.rejects(()=>manager.vision({}),error=>error.kind==="no_vision_provider")});

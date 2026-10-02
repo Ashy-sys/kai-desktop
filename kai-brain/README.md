@@ -1,6 +1,6 @@
 # Kai Brain
 
-Kai Brain is a small Kai-specific HTTPS service. It is not an OpenAI-compatible proxy and exposes only `GET /healthz`, `POST /v1/devices/register`, and authenticated `POST /v1/respond`.
+Kai Brain is a small Kai-specific HTTPS service. It is not an OpenAI-compatible proxy. In addition to health, enrollment, and text response routes, V1.3 exposes authenticated, narrowly scoped `/v1/vision` and `/v1/transcribe` routes.
 
 ## Trust model
 
@@ -9,6 +9,8 @@ Provider keys exist only in server environment/secrets management. A desktop ins
 For the first personal deployment, set `KAI_ALLOW_FIRST_DEVICE_REGISTRATION=true` on a fresh persistent data volume. Exactly the first device may enroll without a shared secret; registration closes once it succeeds. Set it back to `false` afterward. Additional devices require a deployment-time `KAI_REGISTRATION_CODE`, entered only during enrollment and never shipped in the installer. This is zero-config for the first personal installation, not a mass-distribution identity system. A public multi-user release still needs a proper account/attestation enrollment service.
 
 Rate limits apply per device and source IP. Registration is separately IP-limited. Rate-limit counters are intentionally in memory and reset whenever an instance restarts or traffic moves to another stateless instance. Request bodies are capped at 64 KiB, context at 16 messages, individual messages at 4,000 characters, and output at roughly 500 tokens. Logs contain request IDs, device IDs, provider/model, result kind, and error category—not prompts, tool results, bearer tokens, or provider response bodies.
+
+Screen images and microphone audio are high-sensitivity transient inputs. Normal requests contain neither. `/v1/vision` accepts one explicitly authorized, bounded JPEG; `/v1/transcribe` accepts one push-to-talk clip. The service routes only to providers declaring the required capability, never logs payloads or derived OCR/transcripts, and never writes media to the device registry or filesystem. Payloads are released after the request. Provider APIs receive the media only during that authorized operation; their own retention terms still apply.
 
 ## Run and deploy
 

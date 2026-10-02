@@ -80,6 +80,15 @@ struct BrainResponse {
     text: Option<String>,
     tool: Option<BrainTool>,
 }
+fn authorized_post(app:&AppHandle,path:&str,body:&Value)->Result<Value,String>{
+    let url=service_url().ok_or("Kai Brain service URL is not configured in this build.")?;let client=client()?;
+    let mut token=match credentials::read_brain_token()?{Some(value)=>value,None=>enroll(app,&url,&client)?};
+    let send=|token:&str|client.post(format!("{url}{path}")).bearer_auth(token).json(body).send().map_err(|_|"Kai Brain is temporarily unavailable.".to_string());
+    let mut response=send(&token)?;if response.status().as_u16()==401{credentials::delete_brain_token().ok();token=enroll(app,&url,&client)?;response=send(&token)?}
+    token.zeroize();match response.status().as_u16(){200=>response.json().map_err(|_|"Kai Brain returned an invalid media response.".into()),429=>Err("Kai Brain is busy right now. Please try again shortly.".into()),_=>Err("Kai Brain's vision or speech provider is unavailable.".into())}
+}
+pub fn vision(app:&AppHandle,prompt:String,image:String)->Result<String,String>{let value=authorized_post(app,"/v1/vision",&json!({"prompt":prompt,"image":image}))?;value.get("text").and_then(Value::as_str).filter(|v|!v.trim().is_empty()).map(str::to_string).ok_or("Kai Brain returned no screen description.".into())}
+pub fn transcribe(app:&AppHandle,audio:String,mime_type:String)->Result<String,String>{let value=authorized_post(app,"/v1/transcribe",&json!({"audio":audio,"mimeType":mime_type}))?;value.get("text").and_then(Value::as_str).filter(|v|!v.trim().is_empty()).map(str::to_string).ok_or("Kai Brain returned no transcription.".into())}
 fn post(client: &Client, url: &str, token: &str, body: &Value) -> Result<BrainResponse, String> {
     let response = client
         .post(format!("{url}/v1/respond"))

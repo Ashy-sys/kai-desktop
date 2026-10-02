@@ -10,7 +10,17 @@ Opening stretches the capsule for 240 ms, then unfolds the contextual surface fo
 
 Visual quality and monitor/DPI behavior require manual Windows review. Foreground-monitor tracking remains unchanged. No claim of visual acceptance follows from compilation alone.
 
-Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1.2 adds a deployment-ready Kai Brain client/service boundary and reliable single-instance startup while preserving the Island, animated character, local commands, search, system information, settings/memory, and tray controls.
+Kai is a lightweight, offline-first Windows desktop companion built with Tauri 2, Rust, React, TypeScript, and Vite. V1.3 adds explicitly authorized screen vision, bounded Windows control, push-to-talk transcription, and optional local speech output while preserving the approved V1.2 experience and security boundaries.
+
+## V1.3 vision, control, and voice
+
+- **See screen once** captures only the monitor under the pointer after confirmation, in memory, at bounded resolution. The image is discarded after the authenticated vision request.
+- **Control screen** is disabled by default and must be enabled in settings, explicitly started, and visibly remains active until Stop, `Ctrl+Alt+K`, timeout, limits, or failure ends it. Model output is only a proposal; Rust validates and executes one typed action before observing again.
+- Windows UI Automation is preferred for exact window/control identities. Strictly bounded pointer and keyboard input is the fallback. There is no shell, script execution, clipboard access, arbitrary executable launch, or arbitrary filesystem write.
+- **Push-to-talk** records only after clicking the microphone, releases it immediately on stop, transcribes through the authenticated Brain, then routes the resulting text through the existing local-first router.
+- **Speak short responses** is optional and off by default. It uses the local Windows/WebView speech engine and sends no TTS audio to the Brain.
+
+See [the V1.3 security model](docs/V1.3-SECURITY.md) for permission, privacy, provider, confirmation, and manual-test details.
 
 ## Development
 
