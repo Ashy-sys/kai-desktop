@@ -4,9 +4,13 @@
   "version": "0.1.2",
   "type": "module",
   "scripts": {
-    "check": "node --check src/server.js && node --check src/providers.js && node --check src/security.js",
+    "check": "node --check src/server.js && node --check src/providers.js && node --check src/security.js && node --check src/device-registry.js && node --check scripts/migrate.js",
+    "db:migrate": "node scripts/migrate.js",
     "test": "node --test",
     "start": "node src/server.js"
   },
-  "engines": { "node": ">=22" }
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2"
+  }
 }
